@@ -20,7 +20,7 @@ body{background:var(--bg);color:var(--fg);font:15px system-ui,-apple-system,"Seg
 .lbl{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--mu)}
 .big{font-size:30px;font-weight:800}.left{font-size:12px;font-weight:650;letter-spacing:.5px;color:var(--pr);text-transform:uppercase}
 #main{flex:1;overflow:auto;min-height:0;display:flex;flex-direction:column}
-#tt{flex:1;overflow:auto;background:var(--sv);border:1px solid var(--ov);border-radius:14px;padding:8px}
+#tt{display:flex;flex-direction:column;flex:1;overflow:auto;background:var(--sv);border:1px solid var(--ov);border-radius:14px;padding:8px}
 .row{padding:6px;margin:3px 0;border-radius:8px;text-align:center;position:relative}
 .row.cur{background:var(--pc)}.row.cur b{color:var(--pr)}.row.cur:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--pr)}
 .row small{display:block;color:var(--mu);font-size:12px}
@@ -35,7 +35,7 @@ hr{border:0;border-top:1px solid var(--ov);margin:4px 4px}
 select.pill{min-width:118px;text-align:center}
 .dots{display:flex;gap:6px}.dots i{height:6px;width:6px;border-radius:3px;background:var(--ol);transition:.2s}.dots i.on{width:18px;background:var(--pr)}
 .panel{position:fixed;inset:0;background:var(--bg);z-index:5;display:block;visibility:hidden;opacity:0;transition:opacity .2s,transform .25s,visibility 0s .25s;padding:calc(12px + env(safe-area-inset-top,0px)) 12px 12px;overflow:auto}
-.panel.show{visibility:visible;opacity:1;transform:none;transition-delay:0s}#set{transform:scale(.92);transform-origin:0 100%}#rp{transform:translateY(100%)}.panel>div{max-width:520px;margin:0 auto}
+.panel.show{visibility:visible;opacity:1;transform:none;transition-delay:0s}#set{transform:scale(.92);transform-origin:0 100%}#rp{transform:translateY(100%)}#set.show,#rp.show{transform:none}.panel>div{max-width:520px;margin:0 auto}
 .set{display:flex;align-items:center;gap:12px;padding:8px 4px;cursor:pointer;border-radius:14px}
 .set .t{flex:1}.set b{display:block}.set span{font-size:12px;color:var(--mu)}
 .sw{width:42px;height:24px;border-radius:12px;background:var(--ol);position:relative;flex:none}.sw:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s}.sw.on{background:var(--pr)}.sw.on:after{left:21px}
@@ -52,6 +52,7 @@ textarea{height:45vh}
 canvas{position:fixed;inset:0;pointer-events:none;z-index:8}
 .fade{animation:f .45s}@keyframes f{from{opacity:0;transform:translateY(8px)}}
 .note{font-size:12px;text-align:center;margin:6px 0}
+#tt>*{flex:none}#tt>.row,#tt>hr{margin-top:auto;margin-bottom:auto;width:100%}.set>span:first-child{transition:opacity .2s}.pill{transition:background .15s,border-color .15s,color .15s,transform .15s}
 .ib,.pill{transition:background .15s,border-color .15s,transform .15s}.set,.row,.free,.rem{transition:background .2s}#main .card{transition:transform .15s,box-shadow .15s}
 select.pill:focus{border-color:var(--pr);outline:0}
 .spin{animation:rot .6s cubic-bezier(.4,0,.2,1)}@keyframes rot{to{transform:rotate(360deg)}}
@@ -172,8 +173,8 @@ function openSettings(){const el=$("#set");el.classList.add("show");
  <div class="sec">Timetable</div><div class="hold" id="hold"><i></i><span>✏️ Hold 3s to edit timetable</span></div>
  <div class="sec">Security</div><div class="note mu" style="margin-bottom:6px">Key valid until ${new Date(exp()).toLocaleString()}</div><button class="btn" id="lk2" style="width:100%">🔒 Deactivate (key needed again)</button><div class="sec">Appearance</div><div class="g">${["light","dark","device"].map(t=>`<button class="pill${P.theme===t?" on":""}" data-t="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`).join("")}</div>`;
  $("#x").onclick=()=>{el.classList.remove("show");render()};
- el.querySelectorAll("[data-k]").forEach(r=>r.onclick=()=>{P[r.dataset.k]=!P[r.dataset.k];savePrefs();openSettings()});
- el.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{P.theme=b.dataset.t;savePrefs();openSettings()});
+ el.querySelectorAll("[data-k]").forEach(r=>r.onclick=()=>{const k=r.dataset.k;P[k]=!P[k];savePrefs();r.querySelector(".sw").classList.toggle("on",P[k]);const ic=r.firstElementChild;ic.style.opacity=P[k]?1:.45;if(k==="emoji")ic.textContent=P.emoji?"🙂":"😐"});
+ el.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{P.theme=b.dataset.t;savePrefs();el.querySelectorAll("[data-t]").forEach(x=>x.classList.toggle("on",x===b))});
  $("#tn").onclick=async()=>{if(await askPerm())notify("Test notification","Notifications are working ✅")};
  $("#lk2").onclick=()=>{el.classList.remove("show");try{fetch(API+"/release",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:ld("act",""),device:dev()})})}catch(e){}locked=true;try{sessionStorage.removeItem("ok");localStorage.removeItem("act");localStorage.removeItem("actExp")}catch(e){}render()};
  const h=$("#hold"),bar=h.querySelector("i"),tx=h.querySelector("span");let raf,t0;
