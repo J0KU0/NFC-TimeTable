@@ -143,4 +143,147 @@ function render(anim){
  h+=P.swipe?`<div class="dots">${[1,2,3,4,5,6,7].map(d=>`<i class="${d===day?"on":""}"></i>`).join("")}</div>`:`<select class="pill" id="daysel">${[1,2,3,4,5,6,7].map(d=>`<option value="${d}"${d===day?" selected":""}>${DN[d]}</option>`).join("")}</select>`;
  app.innerHTML=h+"</div>";
  $("#gear").onclick=()=>openSettings();const bl=$("#bell")||$("#hint");if(bl)bl.onclick=()=>openRems();
- $("#refr").onclick=function(){const ov=$("#ov");this.classList.add("spin");ov.classList.re
+ $("#refr").onclick=function(){const ov=$("#ov");this.classList.add("spin");ov.classList.remove("out");ov.classList.add("on");setTimeout(()=>render(true),600);setTimeout(()=>{ov.classList.add("out");ov.classList.remove("on")},2500);setTimeout(()=>ov.classList.remove("out"),3100)};
+ const s=$("#daysel");if(s)s.onchange=()=>{day=+s.value;render(true)};
+}
+let tx=null,ty=0,sc=false;
+document.addEventListener("touchstart",e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;const t=e.target.closest&&e.target.closest("#tt");sc=!!t&&t.scrollHeight>t.clientHeight+2},{passive:true});
+document.addEventListener("touchend",e=>{if(locked||tx==null||!TT||document.querySelector(".panel.show")){tx=null;return}const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;tx=null;
+ if(P.rsw&&!sc&&-dy>80&&-dy>Math.abs(dx)*1.5)return openRems();
+ if(P.swipe&&Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)){const n=day+(dx<0?1:-1);if(n>=1&&n<=7){SD=dx<0?1:-1;day=n;render(true);SD=0}}});
+// SETUP
+function setupView(editing){
+ drafts={};for(const d in SL)SL[d].forEach(([s,e],i)=>{const x=(TT?.[d]||[]).find(l=>l.start===s&&l.end===e);drafts[d+"-"+i]=x?{subject:x.subject,room:x.room,teacher:x.teacher}:{subject:"",room:"",teacher:""}});
+ let sd=1;
+ const draw=()=>{const app=$("#app");
+  let h=`<h2>${editing?"Edit your timetable":"Set up your timetable"}</h2><div class="note mu">${mode?"Paste your timetable, then tap Generate.":"Leave a slot blank for a free period. Breaks are added automatically."}</div>
+  <div class="g"><button class="pill${mode?"":" on"}" data-m="0">Enter manually</button><button class="pill${mode?" on":""}" data-m="1">Paste timetable</button></div>`;
+  if(notice)h+=`<div class="note ${notice.err?"":"pr"}" style="${notice.err?"color:#b91c1c":""}">${esc(notice.msg)}</div>`;
+  if(!mode){h+=`<div class="g">${["Mon","Tue","Wed","Thu","Fri"].map((l,i)=>`<button class="pill${sd===i+1?" on":""}" data-d="${i+1}">${l}</button>`).join("")}</div><div style="flex:1;overflow:auto">`;
+   SL[sd].forEach(([s,e],i)=>{const d=drafts[sd+"-"+i];h+=`<div class="card" style="text-align:left"><b class="pr">${s} – ${e}</b><input data-k="subject" data-i="${i}" placeholder="Subject (blank = free)" value="${esc(d.subject)}" style="margin:6px 0"><div class="g"><input data-k="room" data-i="${i}" placeholder="Room" value="${esc(d.room)}"><input data-k="teacher" data-i="${i}" placeholder="Teacher" value="${esc(d.teacher)}" style="flex:1.4"></div></div>`});h+="</div>"}
+  else h+=`<textarea id="paste" placeholder="Paste your timetable here…">${esc(pasteText)}</textarea><button class="btn p" id="gen" style="width:100%;margin-top:8px">Generate timetable</button>`;
+  h+=`<div class="g" style="margin-top:10px">${editing?`<button class="btn" id="cn">Cancel</button>`:""}<button class="btn p" id="sv">Save</button></div>`;
+  app.innerHTML=h;
+  app.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{mode=+b.dataset.m;draw()});
+  app.querySelectorAll("[data-d]").forEach(b=>b.onclick=()=>{sd=+b.dataset.d;draw()});
+  app.querySelectorAll("[data-k]").forEach(i=>i.oninput=()=>{drafts[sd+"-"+i.dataset.i][i.dataset.k]=i.value});
+  const p=$("#paste");if(p)p.oninput=()=>{pasteText=p.value;notice=null};
+  if($("#gen"))$("#gen").onclick=()=>{const ps=parseText(pasteText);if(!ps.length){notice={msg:"Couldn’t find any lessons in that text.",err:1};return draw()}
+   const nd={},sk=[];ps.forEach(x=>{const i=(SL[x.day]||[]).findIndex(s=>s[0]===x.start&&s[1]===x.end);i>=0?nd[x.day+"-"+i]={subject:x.subject,room:x.room,teacher:x.teacher}:sk.push(`${DN[x.day]} ${x.start}–${x.end}`)});
+   if(!Object.keys(nd).length){notice={msg:"Found lessons, but none matched your time slots.",err:1};return draw()}
+   for(const k in drafts)drafts[k]={subject:"",room:"",teacher:""};Object.assign(drafts,nd);
+   notice={msg:`Imported ${Object.keys(nd).length} lessons. Check them, then tap Save.`+(sk.length?` Skipped ${sk.length}: ${sk.join(", ")}.`:"")};sd=1;mode=0;draw()};
+  if($("#cn"))$("#cn").onclick=()=>{notice=null;render()};
+  $("#sv").onclick=()=>{const r={6:[],7:[]};for(const d in SL)r[d]=SL[d].map(([start,end],i)=>{const x=drafts[d+"-"+i];return x.subject.trim()?{start,end,subject:x.subject.trim(),room:x.room.trim(),teacher:x.teacher.trim()}:null}).filter(Boolean);
+   if(!Object.values(r).some(a=>a.length))return;TT=r;sv("tt",TT);notice=null;render()}};
+ draw()}
+function parseText(text){const out=[];let d=0,ps=null,pe=null,pl=[];
+ const DM={monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6,sunday:7},TR=/^(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})\s*(?::\s*(.*))?$/;
+ const nt=t=>{const[a,b]=t.split(":");return String(+a).padStart(2,"0")+":"+b};
+ const split=t=>{t=t.trim();let m=t.match(/^(.*?[a-z.'\-])\s*([A-Z]{1,3}\d{1,3}[A-Za-z]?)$/);if(m)return[m[1].trim(),m[2]];if(/^[A-Z]{1,3}\d{1,3}[A-Za-z]?$/.test(t))return["",t];return[t,""]};
+ const inl=t=>{let m;if(m=t.match(/^(.*)\s+in\s+(.+?)\s+with\s+(.+)$/))return[m[1],m[2],m[3]].map(x=>x.trim());if(m=t.match(/^(.*)\s+with\s+(.+)$/))return[m[1].trim(),"",m[2].trim()];if(m=t.match(/^(.*)\s+in\s+(.+)$/))return[m[1].trim(),m[2].trim(),""];return[t.trim(),"",""]};
+ const flush=()=>{if(ps&&pe&&d&&pl.length){const[t,r]=split(pl.slice(1).join(" "));out.push({day:d,start:ps,end:pe,subject:pl[0],room:r,teacher:t})}ps=pe=null;pl=[]};
+ for(const raw of text.split("\n")){const l=raw.replace(/\u00A0/g," ").trim();if(!l)continue;
+  const dh=DM[l.toLowerCase().replace(/:+$/,"").trim()];if(dh){flush();d=dh;continue}
+  const m=l.match(TR);if(m){flush();const tail=(m[3]||"").trim();if(tail){if(d){const[s,r,t]=inl(tail);out.push({day:d,start:nt(m[1]),end:nt(m[2]),subject:s,room:r,teacher:t})}}else{ps=nt(m[1]);pe=nt(m[2])}continue}
+  if(ps)pl.push(l)}
+ flush();return out}
+// SETTINGS
+function openSettings(){const el=$("#set");el.classList.add("show");
+ const row=(k,e,l,d)=>`<div class="set" data-k="${k}"><span class="ico" style="opacity:${P[k]?1:.45}">${e}</span><div class="t"><b>${l}</b><span>${d}</span></div><div class="sw${P[k]?" on":""}"></div></div>`;
+ $("#setc").innerHTML=`<div class="sh"><h2>Settings</h2><button class="ib" id="x" aria-label="Close settings">${IC.x}</button></div><hr><div id="sc">
+ <div class="sec" style="margin-top:12px">Display</div>${row("emoji",P.emoji?"🙂":"😐","Emoji","Show emoji next to subjects")}${row("swipe","↔️","Swipe mode","Swipe left or right to change day")}
+ <div class="sec">Notifications</div>${row("status","📌","Browser notifications","Show alerts while this page is open")}${row("alerts","⏰","Lesson alerts","Warn me before lessons start")}
+ <div class="set" id="tn"><span class="ico">🔔</span><div class="t"><b>Test notification</b><span>Check that alerts are working</span></div><b class="pr">Send</b></div>
+ <div class="sec">Reminders</div>${row("rsw","👆","Swipe for reminders","Off shows a button at the bottom instead")}
+ <div class="sec">Timetable</div><div class="hold" id="hold"><i></i><b class="hi">✏️</b><span>Hold 3s to edit timetable</span></div>
+ <div class="sec">Security</div><div class="note mu" style="margin-bottom:6px">Key valid until ${new Date(exp()).toLocaleString()}</div><button class="btn" id="lk2" style="width:100%">🔒 Deactivate (key needed again)</button><div class="sec">Appearance</div><div class="g">${["light","dark","device"].map(t=>`<button class="pill${P.theme===t?" on":""}" data-t="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`).join("")}</div></div>`;
+ $("#x").onclick=()=>{el.classList.remove("show");render()};
+ el.onclick=e=>{if(e.target===el){el.classList.remove("show");render()}};
+ el.querySelectorAll("[data-k]").forEach(r=>r.onclick=()=>{const k=r.dataset.k;P[k]=!P[k];savePrefs();r.querySelector(".sw").classList.toggle("on",P[k]);const ic=r.firstElementChild;ic.style.opacity=P[k]?1:.45;if(k==="emoji")ic.textContent=P.emoji?"🙂":"😐"});
+ el.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{P.theme=b.dataset.t;savePrefs();el.querySelectorAll("[data-t]").forEach(x=>x.classList.toggle("on",x===b))});
+ $("#tn").onclick=async()=>{if(await askPerm())notify("Test notification","Notifications are working ✅")};
+ $("#lk2").onclick=()=>{el.classList.remove("show");try{fetch(API+"/release",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:ld("act",""),device:dev()})})}catch(e){}locked=true;try{sessionStorage.removeItem("ok");localStorage.removeItem("act");localStorage.removeItem("actExp")}catch(e){}render()};
+ const h=$("#hold"),bar=h.querySelector("i"),tx=h.querySelector("span");let raf,t0;
+ const stop=()=>{cancelAnimationFrame(raf);bar.style.width=0;tx.textContent="Hold 3s to edit timetable"};
+ h.onpointerdown=()=>{t0=performance.now();const step=()=>{const p=Math.min(1,(performance.now()-t0)/3000);bar.style.width=p*100+"%";tx.textContent=`Keep holding… ${Math.ceil(3-p*3)||1}s`;if(p>=1){el.classList.remove("show");mode=0;return setupView(true)}raf=requestAnimationFrame(step)};step()};
+ h.onpointerup=h.onpointerleave=h.onpointercancel=stop}
+// REMINDERS PANEL
+function openRems(edit){const el=$("#rp");el.classList.add("show");sv("remhint",1);
+ if(edit!==undefined)return editor(edit);
+ const l=[...R].sort((a,b)=>min(a.time)-min(b.time));
+ const sum=r=>r.repeat==="ONCE"?"Once · "+fullDate(new Date(r.startDate+"T00:00")):r.repeat==="DAILY"?"Every day":r.repeat==="WEEKLY"?"Every "+[...r.weekdays].sort().map(d=>DN[d].slice(0,3)).join(", "):"Monthly on "+[...r.daysOfMonth].sort((a,b)=>a-b).join(", ");
+ $("#rpc").innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Reminders</h2><span style="display:flex;gap:8px"><button class="ib" id="nw">＋</button><button class="ib" id="x2">✕</button></span></div><div style="margin-top:10px">`+
+ (l.length?l.map(r=>`<div class="card" style="text-align:left;display:flex;align-items:center;gap:8px" data-e="${r.id}"><div style="flex:1;cursor:pointer"><b style="font-size:16px">${KINDS[r.kind][1]} ${esc(r.name)}</b><div class="pr" style="font-size:13px">${r.time} · ${sum(r)}</div><div class="mu" style="font-size:12px">${[r.kind!=="NONE"?KINDS[r.kind][0]:"",r.subject||""].filter(Boolean).map(esc).join(" · ")}</div></div><button class="ib" data-del="${r.id}" style="border:0">🗑</button></div>`).join(""):`<p class="c mu" style="margin-top:80px">No reminders yet.<br>Tap + to create one.</p>`)+"</div>";
+ $("#x2").onclick=()=>{el.classList.remove("show");render()};$("#nw").onclick=()=>editor(null);
+ el.querySelectorAll("[data-e]").forEach(c=>c.firstElementChild.onclick=()=>editor(R.find(r=>r.id===c.dataset.e)));
+ el.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{R=R.filter(r=>r.id!==b.dataset.del);sv("rem",R);openRems()})}
+function editor(init){
+ const t=today();let s=init?{...init,weekdays:[...init.weekdays],daysOfMonth:[...init.daysOfMonth]}:{id:crypto.randomUUID?.()||String(Date.now()),name:"",time:"08:00",repeat:"ONCE",weekdays:[dow(t)],daysOfMonth:[t.getDate()],subject:null,description:"",kind:"NONE",startDate:ymd(t)};
+ let link=s.subject!=null,q="";
+ const opts=[...new Set(Object.values(TT||{}).flat().map(l=>l.subject))].sort();
+ const toggle=(arr,v)=>arr.includes(v)?(arr.length>1?arr.filter(x=>x!==v):arr):[...arr,v];
+ const draw=()=>{const ch=(l,on,a)=>`<button class="pill${on?" on":""}" ${a} style="padding:9px 4px;font-size:13px">${l}</button>`;
+  const ms=opts.filter(o=>!q||o.toLowerCase().includes(q.toLowerCase())).slice(0,6);
+  $("#rpc").innerHTML=`<h2>${init?"Edit":"New"} reminder</h2><input id="nm" placeholder="Name of reminder" value="${esc(s.name)}">
+  <div class="sec">Time</div><input type="time" id="tm" value="${s.time}">
+  <div class="sec">Repeats</div><div class="g">${REP.map(r=>ch(r[0]+r.slice(1).toLowerCase(),s.repeat===r,`data-r="${r}"`)).join("")}</div>
+  ${s.repeat==="ONCE"?`<input type="date" id="dt" value="${s.startDate}">`:""}
+  ${s.repeat==="WEEKLY"?`<div class="g" style="gap:4px">${"MTWTFSS".split("").map((l,i)=>ch(l,s.weekdays.includes(i+1),`data-w="${i+1}"`)).join("")}</div>`:""}
+  ${s.repeat==="MONTHLY"?`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${Array.from({length:31},(_,i)=>ch(i+1,s.daysOfMonth.includes(i+1),`data-m="${i+1}"`)).join("")}</div><div class="note mu">Days 29–31 run on the last day of shorter months.</div>`:""}
+  <div class="sec">Subject</div><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="lk" style="width:auto" ${link?"checked":""}> Link to a subject</label>
+  ${link?`${s.subject?`<div class="pr"><b>Selected: ${esc(fmtSub(s.subject))}</b></div>`:""}<input id="qq" placeholder="Search subjects" value="${esc(q)}" style="margin:6px 0"><div class="card" style="padding:0;text-align:left;overflow:hidden">${ms.map(o=>`<div data-s="${esc(o)}" style="padding:10px 12px;cursor:pointer;${o===s.subject?"font-weight:700":""}">${esc(fmtSub(o))}</div>`).join("")}${q.trim()&&!ms.some(o=>o.toLowerCase()===q.trim().toLowerCase())?`<div class="pr" data-s="${esc(q.trim())}" style="padding:10px 12px;cursor:pointer">Use “${esc(q.trim())}”</div>`:""}</div>`:""}
+  <div class="sec">Description</div><textarea id="ds" style="height:70px">${esc(s.description)}</textarea>
+  <div class="sec">Type (optional)</div><div class="g">${Object.entries(KINDS).map(([k,v])=>ch(k==="NONE"?"None":v[1]+" "+v[0],s.kind===k,`data-k="${k}"`)).join("")}</div>
+  <div class="g" style="margin-top:12px"><button class="btn" id="cc">Cancel</button><button class="btn p" id="ok" ${s.name.trim()&&(!link||s.subject)?"":"disabled"}>Save</button></div>`;
+  const P2=$("#rpc"),keep=()=>{s.name=$("#nm").value;s.time=$("#tm").value||s.time;s.description=$("#ds").value;if($("#dt")&&$("#dt").value)s.startDate=$("#dt").value};
+  $("#nm").oninput=e=>{s.name=e.target.value;$("#ok").disabled=!(s.name.trim()&&(!link||s.subject))};
+  P2.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{keep();s.repeat=b.dataset.r;draw()});
+  P2.querySelectorAll("[data-w]").forEach(b=>b.onclick=()=>{keep();s.weekdays=toggle(s.weekdays,+b.dataset.w);draw()});
+  P2.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{keep();s.daysOfMonth=toggle(s.daysOfMonth,+b.dataset.m);draw()});
+  P2.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{keep();s.kind=b.dataset.k;draw()});
+  P2.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{keep();s.subject=b.dataset.s;draw()});
+  $("#lk").onchange=e=>{keep();link=e.target.checked;if(!link)s.subject=null;draw()};
+  const qq=$("#qq");if(qq)qq.oninput=e=>{keep();q=e.target.value;draw();const n=$("#qq");n.focus();n.setSelectionRange(q.length,q.length)};
+  $("#cc").onclick=()=>openRems();
+  $("#ok").onclick=()=>{keep();if(s.repeat!=="ONCE"&&init&&init.repeat!=="ONCE")s.startDate=init.startDate;else if(s.repeat!=="ONCE")s.startDate=ymd(today());
+   s.name=s.name.trim();s.description=s.description.trim();if(!link)s.subject=null;R=R.filter(r=>r.id!==s.id).concat(s);sv("rem",R);openRems()}};
+ draw()}
+// NOTIFICATIONS (while page is open)
+async function askPerm(){if(!("Notification"in window))return false;if(Notification.permission==="granted")return true;try{return(await Notification.requestPermission())==="granted"}catch(e){return false}}
+function notify(t,b){try{if(Notification.permission==="granted")new Notification(t,{body:b})}catch(e){}}
+function checkNotifs(){if(locked||!P.status||!("Notification"in window)||Notification.permission!=="granted"||!TT)return;
+ const dk=ymd(today()),cm=nowMin(),d=dow(today()),ls=lessons(d);let st=(ld("notified",[])).filter(k=>k.startsWith(dk));const L=st.length;
+ const once=(k,t,b)=>{if(!st.includes(k)){notify(t,b);st.push(k)}};
+ if(P.alerts&&ls.length){const f=ls[0];if(min(f.start)-cm===60)once(dk+"-start","School starts in 1 hour",`First lesson: ${f.subject} at ${f.start} · ${f.room}`);
+  ls.forEach((l,i)=>{if(!i)return;const gap=min(l.start)-min(ls[i-1].end),th=gap>60?30:5;if(min(l.start)-cm===th)once(`${dk}-${l.start}-${th}`,`${emojiFor(l.subject)||""} ${l.subject} starts in ${th} minutes`.trim(),`${l.start} – ${l.end} · ${l.room} · ${l.teacher}`)});
+  if(d<6&&cm>=Math.max(...ls.map(l=>min(l.end))))once(dk+"-done","School’s out! 🎉","You’ve finished all your lessons for today.")}
+ remsFor(today()).forEach(r=>{const df=cm-min(r.time);if(df>=0&&df<=45)once(dk+"-r-"+r.id,KINDS[r.kind][1]+" "+r.name,[r.time,r.kind!=="NONE"?KINDS[r.kind][0]:"",r.subject||"",r.description].filter(Boolean).join(" · "))});
+ if(st.length!==L)sv("notified",st)}
+// CONFETTI
+function confetti(){const c=document.createElement("canvas");c.width=innerWidth;c.height=innerHeight;document.body.append(c);const x=c.getContext("2d"),cols=["#ef4444","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"],
+ ps=Array.from({length:90},()=>({x:Math.random(),d:Math.random()*1.2,f:1.8+Math.random()*1.6,dr:(Math.random()-.5)*.4,s:6+Math.random()*7,c:cols[Math.random()*6|0],sp:(Math.random()-.5)*8})),t0=performance.now();
+ (function f(){const t=(performance.now()-t0)/1000;x.clearRect(0,0,c.width,c.height);ps.forEach(p=>{if(t<p.d)return;const l=Math.min(1,(t-p.d)/p.f),px=p.x*c.width+p.dr*c.width*l,py=-30+l*(c.height+60);x.save();x.globalAlpha=l>.85?1-(l-.85)/.15:1;x.translate(px,py);x.rotate(p.sp*t);x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s,p.s,p.s*1.8);x.restore()});t<5?requestAnimationFrame(f):c.remove()})()}
+function maybeConfetti(){if(!TT||locked)return;const d=dow(today()),ls=lessons(d),k=ymd(today());if(d>5||!ls.length||nowMin()<Math.max(...ls.map(l=>min(l.end)))||ld("confetti","")===k)return;sv("confetti",k);confetti()}
+const API="https://kys.timetable-nfc.workers.dev",norm=s=>s.toUpperCase().replace(/[^A-Z0-9]/g,""),exp=()=>ld("actExp",0);
+let locked=!(ld("act","")&&exp()>Date.now());
+const dev=()=>{let d=ld("dev","");if(!d){d=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)+Date.now());sv("dev",d)}return d};
+const chk=k=>fetch(API+"/check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key:k,device:dev()})}).then(r=>r.json());
+function relock(){locked=true;try{sessionStorage.removeItem("ok");localStorage.removeItem("act");localStorage.removeItem("actExp")}catch(e){}render()}
+async function recheck(){const k=ld("act","");if(!k||locked)return;try{const j=await chk(k);if(j.ok)sv("actExp",j.expiresAt);else if(j.ok===false)relock()}catch(e){}}
+function lockView(){const h=null,setting=false;let fails=0,actK;
+ $("#app").innerHTML=`<div style="margin:auto;width:100%;max-width:320px;text-align:center"><div style="font-size:44px">🔒</div><h2>Enter product key</h2><div class="note mu">Enter your product key to unlock the timetable.</div><input id="pw" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" style="margin:8px 0;text-align:center;letter-spacing:2px;font-family:monospace">${setting?`<input type="password" id="pw2" placeholder="Repeat password">`:""}<div class="note" id="pe" style="color:#b91c1c;min-height:18px"></div><button class="btn p" id="go" style="width:100%">Activate</button></div>`;
+ const pw=$("#pw"),pe=$("#pe"),go=$("#go");pw.focus();
+ const run=async()=>{const v=norm(pw.value);if(!v)return;go.disabled=true;pe.textContent="";
+  try{const j=await chk(v);
+   if(j.ok){sv("act",v);sv("actExp",j.expiresAt);return unlock()}
+   fails++;pe.textContent=j.error||"Invalid product key.";pw.value="";await new Promise(r=>setTimeout(r,Math.min(fails,5)*600))}
+  catch(e){pe.textContent="Couldn’t reach the key server. Check your connection."}
+  go.disabled=false};
+ go.onclick=run;document.querySelectorAll("#app input").forEach(i=>i.onkeydown=e=>{if(e.key==="Enter")run()})}
+function unlock(){locked=false;try{sessionStorage.setItem("ok","1")}catch(e){}render(true);maybeConfetti()}
+render(true);if(!locked)maybeConfetti();setInterval(()=>{if(!document.querySelector(".panel.show")&&TT)render()},30000);setInterval(checkNotifs,20000);setInterval(()=>{if(!locked&&exp()<=Date.now())relock()},10000);recheck();setInterval(recheck,600000);
+
+addEventListener("click",()=>{const d=document.documentElement;if(!document.fullscreenElement&&matchMedia("(display-mode: standalone)").matches&&d.requestFullscreen)d.requestFullscreen({navigationUI:"hide"}).catch(()=>{})},{once:true});
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script></body></html>
