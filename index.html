@@ -141,7 +141,7 @@ const ic=d=>`<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"
 const IC={gear:ic("M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"),refr:ic("M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"),bell:ic("M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"),x:ic("M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"),down:ic("M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z")};
 // MAIN RENDER
 function render(anim){
- if(locked)return lockView();
+ if(locked){if(needInstall()){inst=true;return installView()}return lockView()}
  if(!TT)return setupView(false);
  const app=$("#app"),real=dow(today()),cm=nowMin(),ls=lessons(day),wk=day>5,f=anim?(SD?(SD>0?" sR":" sL"):" fade"):"";
  let h=`<div class="c"><div style="font-size:18px;font-weight:650;opacity:.85">${fullDate(dateFor(day))}</div><div class="mu" style="font-size:16px">${wk?"No lessons · Out of school hours":"School day"}</div></div><div id="main" style="margin-top:5px">`;
@@ -305,6 +305,8 @@ addEventListener("appinstalled",()=>{if(inst)finishInstall()});
 const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1),
  isAndroid=/Android/i.test(navigator.userAgent),isMobile=isIOS||isAndroid,
  isStandalone=()=>matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+const webOk=()=>{try{return sessionStorage.getItem("web")==="1"}catch(e){return false}},
+ needInstall=()=>isMobile&&!isStandalone()&&!webOk();
 function burst(x,y){const c=document.createElement("canvas");c.width=innerWidth;c.height=innerHeight;document.body.append(c);
  const g=c.getContext("2d"),cols=["#ef4444","#f59e0b","#22c55e","#3b82f6","#a855f7","#ec4899"],t0=performance.now(),
  ps=Array.from({length:140},()=>{const a=-Math.PI/2+(Math.random()-.5)*Math.PI*1.25,v=6+Math.random()*11;return{x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,s:5+Math.random()*6,c:cols[Math.random()*6|0],r:Math.random()*6,vr:(Math.random()-.5)*.4}});
@@ -313,17 +315,17 @@ function burst(x,y){const c=document.createElement("canvas");c.width=innerWidth;
   t<2.4?requestAnimationFrame(f):c.remove()})()}
 function slideTo(fn){const a=$("#app");a.classList.add("so");
  setTimeout(()=>{a.classList.remove("so");fn();a.classList.add("si");setTimeout(()=>a.classList.remove("si"),450)},320)}
-function finishInstall(){if(!inst)return;slideTo(()=>{inst=false;render();maybeConfetti()})}
+function finishInstall(){if(!inst)return;try{sessionStorage.setItem("web","1")}catch(e){}slideTo(()=>{inst=false;render();maybeConfetti()})}
 function installView(){const app=$("#app");
- app.innerHTML=`<div style="margin:auto;width:100%;max-width:340px;text-align:center"><div style="font-size:52px">📲</div><h2>Install the app</h2><div class="note mu" style="font-size:14px;margin-bottom:12px">Add Timetable to your home screen for quick, full-screen access.</div><div id="ih"></div><button class="btn p" id="inst" style="width:100%;margin-top:10px">${isIOS?"Add to Home Screen":"Install app"}</button><button class="btn" id="skip" style="width:100%;margin-top:8px">Not now</button></div>`;
+ app.innerHTML=`<div style="margin:auto;width:100%;max-width:340px;text-align:center"><div style="font-size:52px">📲</div><h2>Install the app</h2><div class="note mu" style="font-size:14px;margin-bottom:12px">Add Timetable to your home screen for quick, full-screen access.</div><div id="ih"></div><button class="btn p" id="inst" style="width:100%;margin-top:10px">${isIOS?"Add to Home Screen":"Install app"}</button><button class="btn" id="skip" style="width:100%;margin-top:8px">Continue on web</button></div>`;
  const SHARE=`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M12 3v12M8 7l4-4 4 4M5 11v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8"/></svg>`;
  const show=()=>{const l=isIOS?[`Tap the Share button ${SHARE} in your browser`,"Scroll down and tap <b>Add to Home Screen</b>","Tap <b>Add</b> in the top corner"]:["Tap the <b>⋮</b> menu in your browser","Tap <b>Install app</b> or <b>Add to Home screen</b>","Confirm to add it"];
-  $("#ih").innerHTML=`<div class="card fade" style="text-align:left;margin-bottom:0"><ol style="margin:0;padding-left:20px">${l.map(x=>`<li>${x}</li>`).join("")}</ol></div>`;$("#skip").textContent="Continue to timetable"};
+  $("#ih").innerHTML=`<div class="card fade" style="text-align:left;margin-bottom:0"><ol style="margin:0;padding-left:20px">${l.map(x=>`<li>${x}</li>`).join("")}</ol></div>`};
  $("#inst").onclick=async()=>{if(!isIOS&&dip){const p=dip;dip=null;try{p.prompt();const c=await p.userChoice;if(c.outcome==="accepted")return finishInstall()}catch(e){show()}return}show()};
  $("#skip").onclick=finishInstall}
 function unlock(){locked=false;try{sessionStorage.setItem("ok","1")}catch(e){}
- slideTo(()=>{if(isMobile&&!isStandalone()){inst=true;installView()}else{render();maybeConfetti()}})}
-render(true);if(!locked)maybeConfetti();setInterval(()=>{if(!inst&&!document.querySelector(".panel.show")&&TT)render()},30000);setInterval(checkNotifs,20000);setInterval(()=>{if(!locked&&exp()<=Date.now())relock()},10000);recheck();setInterval(recheck,600000);
+ slideTo(()=>{render();maybeConfetti()})}
+render(true);if(!locked)maybeConfetti();setInterval(()=>{if(!locked&&!inst&&!document.querySelector(".panel.show")&&TT)render()},30000);setInterval(checkNotifs,20000);setInterval(()=>{if(!locked&&exp()<=Date.now())relock()},10000);recheck();setInterval(recheck,600000);
 
 addEventListener("click",()=>{const d=document.documentElement;if(!document.fullscreenElement&&matchMedia("(display-mode: standalone)").matches&&d.requestFullscreen)d.requestFullscreen({navigationUI:"hide"}).catch(()=>{})},{once:true});
 
