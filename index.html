@@ -124,7 +124,7 @@ const dateFor=day=>{const t=today();t.setDate(t.getDate()-(dow(t)-1)+day-1);retu
 const fullDate=d=>d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"}).replace(/^(\w+) /,"$1, ");
 const fmtSub=s=>P.emoji&&emojiFor(s)?emojiFor(s)+" "+s:s;
 // STATE
-let SD=0;let P=Object.assign({emoji:true,swipe:false,theme:"device",status:true,alerts:true,rsw:false},ld("prefs",{}));
+let SD=0,inEdit=false;let P=Object.assign({emoji:true,swipe:false,theme:"device",status:true,alerts:true,rsw:false},ld("prefs",{}));
 let TT=ld("tt",null),R=ld("rem",[]),day=dow(today()),mode=0,notice=null,drafts={},pasteText="";
 const savePrefs=()=>{sv("prefs",P);document.documentElement.dataset.theme=P.theme==="device"?"":P.theme};savePrefs();
 const lessons=d=>[...(TT?.[d]||[])].sort((a,b)=>min(a.start)-min(b.start));
@@ -165,11 +165,12 @@ function render(anim){
 }
 let tx=null,ty=0,sc=false;
 document.addEventListener("touchstart",e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;const t=e.target.closest&&e.target.closest("#tt");sc=!!t&&t.scrollHeight>t.clientHeight+2},{passive:true});
-document.addEventListener("touchend",e=>{if(locked||tx==null||!TT||document.querySelector(".panel.show")){tx=null;return}const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;tx=null;
+document.addEventListener("touchend",e=>{if(locked||inEdit||tx==null||!TT||document.querySelector(".panel.show")){tx=null;return}const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;tx=null;
  if(P.rsw&&!sc&&-dy>80&&-dy>Math.abs(dx)*1.5)return openRems();
  if(P.swipe&&Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)){const n=day+(dx<0?1:-1);if(n>=1&&n<=7){SD=dx<0?1:-1;day=n;render(true);SD=0}}});
 // SETUP
 function setupView(editing){
+ inEdit=true;
  drafts={};for(const d in SL)SL[d].forEach(([s,e],i)=>{const x=(TT?.[d]||[]).find(l=>l.start===s&&l.end===e);drafts[d+"-"+i]=x?{subject:x.subject,room:x.room,teacher:x.teacher}:{subject:"",room:"",teacher:""}});
  let sd=1;
  const draw=()=>{const app=$("#app");
@@ -190,9 +191,9 @@ function setupView(editing){
    if(!Object.keys(nd).length){notice={msg:"Found lessons, but none matched your time slots.",err:1};return draw()}
    for(const k in drafts)drafts[k]={subject:"",room:"",teacher:""};Object.assign(drafts,nd);
    notice={msg:`Imported ${Object.keys(nd).length} lessons. Check them, then tap Save.`+(sk.length?` Skipped ${sk.length}: ${sk.join(", ")}.`:"")};sd=1;mode=0;draw()};
-  if($("#cn"))$("#cn").onclick=()=>{notice=null;render()};
+  if($("#cn"))$("#cn").onclick=()=>{notice=null;inEdit=false;render()};
   $("#sv").onclick=()=>{const r={6:[],7:[]};for(const d in SL)r[d]=SL[d].map(([start,end],i)=>{const x=drafts[d+"-"+i];return x.subject.trim()?{start,end,subject:x.subject.trim(),room:x.room.trim(),teacher:x.teacher.trim()}:null}).filter(Boolean);
-   if(!Object.values(r).some(a=>a.length))return;TT=r;sv("tt",TT);notice=null;render()}};
+   if(!Object.values(r).some(a=>a.length))return;TT=r;sv("tt",TT);notice=null;inEdit=false;render()}};
  draw()}
 function parseText(text){const out=[];let d=0,ps=null,pe=null,pl=[];
  const DM={monday:1,tuesday:2,wednesday:3,thursday:4,friday:5,saturday:6,sunday:7},TR=/^(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})\s*(?::\s*(.*))?$/;
@@ -325,7 +326,7 @@ function installView(){const app=$("#app");
  $("#skip").onclick=finishInstall}
 function unlock(){locked=false;try{sessionStorage.setItem("ok","1")}catch(e){}
  slideTo(()=>{render();maybeConfetti()})}
-render(true);if(!locked)maybeConfetti();setInterval(()=>{if(!locked&&!inst&&!document.querySelector(".panel.show")&&TT)render()},30000);setInterval(checkNotifs,20000);setInterval(()=>{if(!locked&&exp()<=Date.now())relock()},10000);recheck();setInterval(recheck,600000);
+render(true);if(!locked)maybeConfetti();setInterval(()=>{if(!locked&&!inst&&!inEdit&&!document.querySelector(".panel.show")&&TT)render()},30000);setInterval(checkNotifs,20000);setInterval(()=>{if(!locked&&exp()<=Date.now())relock()},10000);recheck();setInterval(recheck,600000);
 
 addEventListener("click",()=>{const d=document.documentElement;if(!document.fullscreenElement&&matchMedia("(display-mode: standalone)").matches&&d.requestFullscreen)d.requestFullscreen({navigationUI:"hide"}).catch(()=>{})},{once:true});
 
