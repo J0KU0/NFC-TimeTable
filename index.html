@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en-GB"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Timetable</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="manifest" href="manifest.webmanifest">
@@ -81,6 +81,13 @@ button,select,input,textarea{font-family:inherit}.pill{font-weight:600;font-size
 .sw:after{top:50%;left:6px;width:16px;height:16px;margin-top:-8px;background:var(--mu);transition:left .2s,width .2s,height .2s,margin .2s,background .2s}
 .sw.on{background:var(--pr);border-color:var(--pr)}.sw.on:after{left:22px;width:24px;height:24px;margin-top:-12px;background:var(--on)}
 .hold{display:flex;align-items:center;gap:10px;padding:4px;min-height:56px;border-radius:28px}.hold .hi{position:relative;width:40px;text-align:center;font-size:18px}.hold span{position:relative;font-size:15px}
+
+/* No scrollbars (scrolling still works) */
+*{scrollbar-width:none;-ms-overflow-style:none}
+*::-webkit-scrollbar{display:none;width:0;height:0}
+
+/* No pinch / double-tap zoom on touch devices */
+html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 </style></head><body>
 <div id="app"></div>
 <div id="ov"><div></div></div>
@@ -285,5 +292,11 @@ function unlock(){locked=false;try{sessionStorage.setItem("ok","1")}catch(e){}re
 render(true);if(!locked)maybeConfetti();setInterval(()=>{if(!document.querySelector(".panel.show")&&TT)render()},30000);setInterval(checkNotifs,20000);setInterval(()=>{if(!locked&&exp()<=Date.now())relock()},10000);recheck();setInterval(recheck,600000);
 
 addEventListener("click",()=>{const d=document.documentElement;if(!document.fullscreenElement&&matchMedia("(display-mode: standalone)").matches&&d.requestFullscreen)d.requestFullscreen({navigationUI:"hide"}).catch(()=>{})},{once:true});
+
+// Block zoom: iOS pinch gestures, trackpad pinch / Ctrl+scroll, and Ctrl/Cmd +, -, 0
+["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
+addEventListener("wheel",e=>{if(e.ctrlKey)e.preventDefault()},{passive:false});
+addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&["+","-","=","_","0"].includes(e.key))e.preventDefault()});
+
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script></body></html>
