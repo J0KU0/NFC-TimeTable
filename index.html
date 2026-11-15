@@ -88,6 +88,10 @@ button,select,input,textarea{font-family:inherit}.pill{font-weight:600;font-size
 
 /* No pinch / double-tap zoom on touch devices */
 html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+
+/* No text selection (inputs stay usable so you can still type) */
+*{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+input,textarea{-webkit-user-select:text;user-select:text}
 </style></head><body>
 <div id="app"></div>
 <div id="ov"><div></div></div>
@@ -297,6 +301,11 @@ addEventListener("click",()=>{const d=document.documentElement;if(!document.full
 ["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
 addEventListener("wheel",e=>{if(e.ctrlKey)e.preventDefault()},{passive:false});
 addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&["+","-","=","_","0"].includes(e.key))e.preventDefault()});
+
+// Block text selection / dragging everywhere except inputs and textareas
+const isField=e=>e.target&&e.target.closest&&e.target.closest("input,textarea");
+document.addEventListener("selectstart",e=>{if(!isField(e))e.preventDefault()});
+document.addEventListener("dragstart",e=>{if(!isField(e))e.preventDefault()});
 
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script></body></html>
